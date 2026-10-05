@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Кешірім хат</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@500;700&display=swap">
+<style>
+  /* Layout: soft glowing gradient with drifting hearts; one glass card holds the button and the message */
+  :root {
+    --bg: #fbeef3; --glow-a: #ffc9da; --glow-b: #e3d4ff; --glow-c: #ffe3c7;
+    --fg: #3a2430; --accent: #c8416f; --accent-fg: #ffffff;
+    --card: rgba(255, 255, 255, .55); --card-line: rgba(200, 65, 111, .18);
+    --heart: 200, 65, 111;
+    --display: "Lora", Georgia, serif;
+    --body: system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #1c1320; --glow-a: #5a1f3c; --glow-b: #2f2160; --glow-c: #4a2a1f;
+    --fg: #f4e4ea; --accent: #f07fa6; --accent-fg: #1c1320;
+    --card: rgba(40, 24, 38, .55); --card-line: rgba(240, 127, 166, .22);
+    --heart: 240, 127, 166; color-scheme: dark } }
+  :root[data-theme="dark"] {
+    --bg: #1c1320; --glow-a: #5a1f3c; --glow-b: #2f2160; --glow-c: #4a2a1f;
+    --fg: #f4e4ea; --accent: #f07fa6; --accent-fg: #1c1320;
+    --card: rgba(40, 24, 38, .55); --card-line: rgba(240, 127, 166, .22);
+    --heart: 240, 127, 166; color-scheme: dark }
+
+  html, body { height: 100%; }
+  body {
+    background:
+      radial-gradient(40rem 30rem at 15% 20%, var(--glow-a), transparent 70%),
+      radial-gradient(36rem 28rem at 85% 30%, var(--glow-b), transparent 70%),
+      radial-gradient(40rem 30rem at 50% 100%, var(--glow-c), transparent 70%),
+      var(--bg);
+    color: var(--fg); font-family: var(--body);
+    display: grid; place-items: center;
+    padding: 0 16px; padding-block: 2rem; box-sizing: border-box; overflow: hidden;
+  }
+  #hearts { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .card {
+    position: relative; max-width: 40rem; width: 100%; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center; gap: 2rem;
+    padding: 3rem 1.5rem; text-align: center;
+    background: var(--card); border: 1px solid var(--card-line); border-radius: 28px;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  }
+  button {
+    font: 600 1.15rem var(--body); padding: 1rem 2.5rem; border: none; border-radius: 999px;
+    background: var(--accent); color: var(--accent-fg); cursor: pointer;
+    box-shadow: 0 10px 30px -8px var(--accent);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  button:hover { transform: scale(1.05); }
+  button:focus-visible { outline: 3px solid var(--fg); outline-offset: 4px; }
+  @keyframes pulse { 50% { transform: scale(1.06); } }
+
+  #msg {
+    font: 700 clamp(1.75rem, 5.5vw, 2.75rem)/1.3 var(--display); color: var(--accent);
+    text-wrap: balance; transition: opacity .6s, transform .6s;
+  }
+  #msg.enter { opacity: 0; transform: translateY(12px) scale(.97); }
+  @media (prefers-reduced-motion: reduce) { #msg { transition: none; } button { animation: none; } }
+</style>
+
+<canvas id="hearts"></canvas>
+<main class="card">
+  <button id="btn" type="button">Нажми сюда</button>
+  <div id="msg" hidden>Не обижайтесь на меня, прекрасный человек! Общительность- привилегия)</div>
+</main>
+
+<script>
+  const canvas = document.getElementById('hearts');
+  const ctx = canvas.getContext('2d');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w, h, hearts = [];
+
+  function resize() {
+    const dpr = devicePixelRatio || 1;
+    w = innerWidth; h = innerHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function heartColor() {
+    return getComputedStyle(document.documentElement).getPropertyValue('--heart').trim();
+  }
+  function makeHeart(x, y, burst) {
+    return {
+      x: x ?? Math.random() * w, y: y ?? h + 20 + Math.random() * h,
+      s: 6 + Math.random() * 14, a: .15 + Math.random() * .35,
+      vy: burst ? -(2 + Math.random() * 3) : -(.3 + Math.random() * .7),
+      vx: burst ? (Math.random() - .5) * 4 : 0,
+      ph: Math.random() * Math.PI * 2, life: burst ? 1 : Infinity
+    };
+  }
+  function drawHeart(x, y, s) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + s * .3);
+    ctx.bezierCurveTo(x, y, x - s * .5, y, x - s * .5, y + s * .3);
+    ctx.bezierCurveTo(x - s * .5, y + s * .6, x, y + s * .8, x, y + s);
+    ctx.bezierCurveTo(x, y + s * .8, x + s * .5, y + s * .6, x + s * .5, y + s * .3);
+    ctx.bezierCurveTo(x + s * .5, y, x, y, x, y + s * .3);
+    ctx.fill();
+  }
+  function frame() {
+    const rgb = heartColor();
+    ctx.clearRect(0, 0, w, h);
+    hearts = hearts.filter(p => p.life > 0 && p.y > -40);
+    for (const p of hearts) {
+      p.ph += .02; p.x += p.vx + Math.sin(p.ph) * .3; p.y += p.vy;
+      if (p.life !== Infinity) { p.life -= .012; p.vy += .03; }
+      const alpha = p.life === Infinity ? p.a : p.a * 2 * p.life;
+      ctx.fillStyle = `rgba(${rgb}, ${alpha})`;
+      drawHeart(p.x, p.y, p.s);
+    }
+    while (hearts.filter(p => p.life === Infinity).length < 40) hearts.push(makeHeart());
+    if (!still) requestAnimationFrame(frame);
+  }
+  addEventListener('resize', resize);
+  resize();
+  for (let i = 0; i < 40; i++) hearts.push(makeHeart(undefined, Math.random() * h));
+  frame();
+
+  document.getElementById('btn').addEventListener('click', (e) => {
+    const msg = document.getElementById('msg');
+    msg.classList.add('enter');
+    msg.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => msg.classList.remove('enter')));
+    if (!still) {
+      const r = e.currentTarget.getBoundingClientRect();
+      for (let i = 0; i < 30; i++) hearts.push(makeHeart(r.left + r.width / 2, r.top + r.height / 2, true));
+    }
+  });
+</script>
+
+</html>
